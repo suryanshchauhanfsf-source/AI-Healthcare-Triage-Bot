@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Healthcare Triage Bot</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Use Inter font -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc;
+        }
+    </style>
+
+    <style>
+        /* Chatbot */
+        .chatbot-container {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            z-index: 1000;
+        }
+        
+        .chatbot-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #4a6cf7, #6a11cb);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(74, 108, 247, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .chatbot-icon:hover {
+            transform: scale(1.1);
+        }
+        
+        .chatbot-icon svg {
+            width: 30px;
+            height: 30px;
+            fill: white;
+        }
+        
+        .chat-window {
+            position: absolute;
+            bottom: 75px;
+            right: 0;
+            width: 350px;
+            height: 450px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(to right, #4a6cf7, #6a11cb);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-header h3 {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #f9f9f9;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        
+        .user-message {
+            justify-content: flex-end;
+        }
+        
+        .bot-message {
+            justify-content: flex-start;
+        }
+        
+        .message-bubble {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        .user-message .message-bubble {
+            background-color: #4a6cf7;
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .bot-message .message-bubble {
+            background-color: #e8eaf6;
+            color: #333;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            border-top: 1px solid #eee;
+            background-color: white;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .chat-input button {
+            background-color: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+            margin-left: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            opacity: 0.7;
+        }
+        
+        .typing-dot {
+            height: 8px;
+            width: 8px;
+            background-color: #888;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-5px);
+            }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 600px) {
+            .chat-window {
+                width: 300px;
+                height: 400px;
+            }
+            
+            .chatbot-container {
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+
+</head>
+<body class="min-h-screen p-4 sm:p-8 flex items-start justify-center">
+
+    <div id="app-container" class="w-full max-w-4xl bg-white rounded-3xl shadow-2xl p-6 sm:p-10 border border-gray-100">
+
+        <!-- Header -->
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-extrabold text-blue-800 mb-2">
+                AI Health Triage & Guidance
+            </h1>
+            <p class="text-gray-600 text-lg">
+                Describe your symptoms clearly to get guidance on your possible condition and next steps.
+            </p>
+        </header>
+
+        <!-- Input Area -->
+        <section class="mb-8 space-y-4">
+            <div>
+                <label for="symptomInput" class="block text-xl font-semibold text-gray-700 mb-3">
+                    1. Describe your symptoms clearly:
+                </label>
+                <textarea id="symptomInput" rows="6" placeholder="Example: 'I've had a high temperature of 102°F for two days, severe body aches, and a dry cough. I feel completely exhausted.'"
+                          class="w-full p-4 border-2 border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition duration-150 ease-in-out text-gray-800 resize-none shadow-md"></textarea>
+            </div>
+            
+            <div>
+                <label for="locationInput" class="block text-xl font-semibold text-gray-700 mb-3">
+                    2. Your Location (City/Zip Code) for nearest doctor search:
+                </label>
+                <input type="text" id="locationInput" placeholder="e.g., Anytown, CA or 90210"
+                       class="w-full p-4 border-2 border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition duration-150 ease-in-out text-gray-800 shadow-md">
+            </div>
+
+            <button id="analyzeButton" 
+                    class="mt-4 w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg rounded-xl transition duration-150 ease-in-out shadow-lg transform hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50">
+                Get Health Guidance
+            </button>
+        </section>
+
+        <!-- Loading Indicator and Status Message -->
+        <div id="statusMessage" class="hidden mt-6 p-4 rounded-xl text-center font-medium bg-yellow-50 text-yellow-700 border border-yellow-200">
+            Analyzing your symptoms... Please wait for the assessment.
+        </div>
+
+        <!-- Output Area -->
+        <section id="resultsContainer" class="hidden mt-8 p-6 bg-white border border-gray-200 rounded-2xl shadow-xl">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4 border-b pb-2">Your Triage Summary</h2>
+            
+            <!-- Diagnostic Impression -->
+            <div id="impressionCard" class="p-5 rounded-xl mb-6 shadow-md bg-blue-50 border-l-8 border-blue-400">
+                <p class="text-sm font-semibold mb-1 uppercase tracking-wider text-blue-700">Diagnostic Impression (Potential Cause):</p>
+                <h3 id="impressionText" class="text-xl font-extrabold text-blue-900"></h3>
+            </div>
+            
+            <!-- Next Steps Card -->
+            <div id="nextStepsCard" class="p-5 rounded-xl mb-6 shadow-lg">
+                <p class="text-sm font-semibold mb-1 uppercase tracking-wider text-gray-600">Recommended Next Steps:</p>
+                <h3 id="nextStepsText" class="text-3xl font-extrabold"></h3>
+                <p id="rationaleText" class="mt-3 text-gray-700"></p>
+            </div>
+            
+            <!-- Home Precautions Card (NEW) -->
+            <div id="precautionsCard" class="p-5 rounded-xl mb-6 shadow-md bg-green-50 border-l-8 border-green-400">
+                <p class="text-sm font-semibold mb-1 uppercase tracking-wider text-green-700">Recommended Home Precautions:</p>
+                <ul id="precautionsList" class="space-y-2 mt-3">
+                    <!-- Precautions will be injected here -->
+                </ul>
+            </div>
+
+            <!-- Specialist Recommendation Card -->
+            <div id="specialtyCard" class="p-5 rounded-xl mb-6 shadow-lg bg-indigo-50 border-l-8 border-indigo-400">
+                <p class="text-sm font-semibold mb-1 uppercase tracking-wider text-indigo-700">Recommended Specialist:</p>
+                <h3 id="specialtyText" class="text-2xl font-extrabold text-indigo-900"></h3>
+                <p class="mt-3 text-indigo-800 text-sm font-bold">
+                    Nearest Clinics and Hospitals for this Specialty:
+                </p>
+                
+                <!-- Map Container (NEW) -->
+                <div id="mapContainer" class="w-full h-64 mt-3 mb-4 rounded-xl overflow-hidden border border-gray-300 shadow-inner">
+                    <div class="flex items-center justify-center h-full text-gray-500">Map will load here after analysis.</div>
+                </div>
+
+                <!-- Provider Links Container (UPDATED ID) -->
+                <div id="providerLinksContainer" class="mt-3">
+                    <!-- Location search results will be injected here -->
+                </div>
+            </div>
+
+
+            <!-- Possible Conditions -->
+            <div class="mt-6">
+                <h3 class="text-xl font-bold text-gray-800 mb-3">Possible Conditions (Non-Diagnostic)</h3>
+                <ul id="conditionsList" class="space-y-3">
+                    <!-- Conditions will be injected here -->
+                </ul>
+            </div>
+
+             <!-- Disclaimer -->
+            <div class="mt-6 p-4 text-sm bg-red-50 text-red-700 rounded-lg border border-red-200">
+                <p class="font-bold">Important Disclaimer:</p>
+                <p>This is an AI tool and is NOT a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare professional regarding any medical condition.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const symptomInput = document.getElementById('symptomInput');
+            const locationInput = document.getElementById('locationInput');
+            const analyzeButton = document.getElementById('analyzeButton');
+            const statusMessage = document.getElementById('statusMessage');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const nextStepsCard = document.getElementById('nextStepsCard');
+            const nextStepsText = document.getElementById('nextStepsText');
+            const rationaleText = document.getElementById('rationaleText');
+            const conditionsList = document.getElementById('conditionsList');
+            const specialtyText = document.getElementById('specialtyText');
+            const impressionText = document.getElementById('impressionText');
+            const mapContainer = document.getElementById('mapContainer'); 
+            const providerLinksContainer = document.getElementById('providerLinksContainer');
+            const precautionsList = document.getElementById('precautionsList'); // NEW ELEMENT
+
+            const apiKey = "AIzaSyAN-b8GQVQfug9HjcjNtvmKQ_kGzqvV7aE"; // Canvas will automatically provide the key at runtime
+
+            // Utility function for exponential backoff
+            const fetchWithBackoff = async (url, options, maxRetries = 5) => {
+                for (let i = 0; i < maxRetries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if (response.status === 429 && i < maxRetries - 1) {
+                            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        return response;
+                    } catch (error) {
+                        if (i < maxRetries - 1) {
+                            const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            continue;
+                        }
+                        throw error;
+                    }
+                }
+                throw new Error("Failed to fetch data after multiple retries.");
+            };
+
+            // Function to perform a grounded search for nearest providers AND display map
+            const findNearestProviders = async (specialty, location) => {
+                
+                // 1. Display Map Iframe (Static search link)
+                const mapSearchQuery = encodeURIComponent(`Hospitals and Clinics specializing in ${specialty} near ${location}`);
+                mapContainer.innerHTML = `
+                    <iframe 
+                        width="100%" 
+                        height="100%" 
+                        frameborder="0" 
+                        style="border:0" 
+                        src="https://maps.google.com/maps?q=${mapSearchQuery}&output=embed" 
+                        allowfullscreen>
+                    </iframe>`;
+
+                // 2. Perform LLM Search for specific provider links
+                providerLinksContainer.innerHTML = `<div class="text-center text-gray-500 text-sm p-4">Searching for specific ${specialty} providers...</div>`;
+                
+                const searchQuery = `Nearest doctors, clinics, and hospitals specializing in ${specialty} near ${location}`;
+                
+                // This payload uses the Google Search tool for grounded, real-time results
+                const payload = {
+                    contents: [{ parts: [{ text: searchQuery }] }],
+                    tools: [{ "google_search": {} }],
+                    systemInstruction: {
+                        // UPDATED SYSTEM INSTRUCTION: Tells the model to use a generic title
+                        parts: [{ text: "You are a specialized search assistant. Based on the grounded search results, provide a list of 3-5 relevant location results (hospitals, clinics, or doctor offices). For each result, provide a generic title like 'Provider Link' followed by the link (URL) in a simple markdown list format, for example: * [Provider Link](URL). Do not include the actual name or address of the provider in the title. Do not add any introductory or concluding text." }]
+                    }
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetchWithBackoff(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "No specific locations found. Please try a different location query or specialty.";
+                    
+                    // Simple conversion from markdown list to HTML
+                    const lines = text.split('\n').filter(line => line.startsWith('*'));
+                    
+                    if (lines.length > 0) {
+                        providerLinksContainer.innerHTML = `<ul class="space-y-2 p-3 bg-white rounded-lg border border-gray-100">${lines.map((line, index) => {
+                            // Example line: * [Title](URL)
+                            const match = line.match(/\* \[(.*?)\]\((.*?)\)/);
+                            if (match) {
+                                // HARDCODED GENERIC TEXT: This ensures no name is shown, even if the model provides one
+                                return `<li class="flex items-start text-sm"><svg class="w-5 h-5 text-green-500 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.828 0l-4.243-4.243m-4.243 0a9 9 0 1114.142 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg><a href="${match[2]}" target="_blank" class="text-blue-600 hover:text-blue-800 underline font-medium">Provider Location ${index + 1}</a></li>`;
+                            }
+                            // Fallback if formatting fails
+                            return `<li class="flex items-start text-sm text-gray-700"><span class="ml-7">Unparsed Link ${index + 1}</span></li>`;
+                        }).join('')}</ul>`;
+                    } else {
+                         providerLinksContainer.innerHTML = `<div class="p-4 bg-gray-50 text-gray-600 rounded-lg text-sm">No specific clinic or hospital links could be found. Please try a manual search on Google Maps using the specialty and location above.</div>`;
+                    }
+                } catch (error) {
+                    providerLinksContainer.innerHTML = `<div class="p-4 bg-red-50 text-red-700 rounded-lg text-sm">Error: Unable to search for nearby providers.</div>`;
+                    console.error("Location Search Error:", error);
+                }
+            };
+
+            const getTriageAdvice = async (symptoms) => {
+                // UPDATED System Prompt to request home precautions
+                const systemPrompt = "You are a friendly and responsible AI Health Advisor. Your role is to analyze user-provided symptoms and provide a clear, easy-to-understand triage recommendation. The language must be simple and accessible. You must provide a single sentence 'Diagnostic Impression' (potential primary cause) followed by 3-5 'Possible Conditions'. You MUST also provide 3-5 practical, safe home precautions or self-care steps relevant to the symptoms. The next step recommendation MUST be one of: 'Care for Yourself at Home', 'See a Doctor Soon', or 'Seek Emergency Care'. You MUST also provide the most appropriate medical specialty to consult.";
+
+                const userQuery = `Analyze the following symptoms and provide a structured health assessment, including a simple diagnostic impression and recommended next steps: ${symptoms}`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "diagnosticImpression": {
+                                    "type": "STRING",
+                                    "description": "A single, non-diagnostic statement summarizing the potential primary health issue in simple terms."
+                                },
+                                "conditions": {
+                                    "type": "ARRAY",
+                                    "description": "A list of 3-5 potential health conditions presented as Possible Conditions (easy language).",
+                                    "items": { "type": "STRING" }
+                                },
+                                // NEW PROPERTY
+                                "homePrecautions": {
+                                    "type": "ARRAY",
+                                    "description": "A list of 3-5 simple, safe home care steps or precautions the user can take based on their symptoms.",
+                                    "items": { "type": "STRING" }
+                                },
+                                "nextSteps": {
+                                    "type": "STRING",
+                                    "description": "The triage disposition: 'Care for Yourself at Home', 'See a Doctor Soon', or 'Seek Emergency Care'.",
+                                    "enum": ["Care for Yourself at Home", "See a Doctor Soon", "Seek Emergency Care"]
+                                },
+                                "rationale": {
+                                    "type": "STRING",
+                                    "description": "A brief, simple explanation for the recommended next step."
+                                },
+                                "specialtyRecommendation": {
+                                    "type": "STRING",
+                                    "description": "The recommended medical specialty for follow-up consultation."
+                                }
+                            },
+                            // UPDATED REQUIRED LIST
+                            "required": ["diagnosticImpression", "conditions", "homePrecautions", "nextSteps", "rationale", "specialtyRecommendation"] 
+                        }
+                    }
+                };
+
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const response = await fetchWithBackoff(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    // The model sometimes wraps the JSON in markdown code blocks, clean it up.
+                    const cleanJsonString = jsonString.replace(/```json\n|```/g, '').trim(); 
+                    return JSON.parse(cleanJsonString);
+                } else {
+                    console.error("API Response Error:", result);
+                    throw new Error(result.error?.message || "Could not process symptoms. Please try again.");
+                }
+            };
+
+            const renderResults = (data) => {
+                resultsContainer.classList.remove('hidden');
+                
+                // 1. Diagnostic Impression
+                impressionText.textContent = data.diagnosticImpression;
+
+                // 2. Next Steps Card Styling and Content
+                let bgColor, borderColor, textColor;
+                switch (data.nextSteps) {
+                    case 'Seek Emergency Care':
+                        bgColor = 'bg-red-100';
+                        borderColor = 'border-red-500';
+                        textColor = 'text-red-700';
+                        break;
+                    case 'See a Doctor Soon':
+                        bgColor = 'bg-orange-100';
+                        borderColor = 'border-orange-500';
+                        textColor = 'text-orange-700';
+                        break;
+                    case 'Care for Yourself at Home':
+                    default:
+                        bgColor = 'bg-green-100';
+                        borderColor = 'border-green-500';
+                        textColor = 'text-green-700';
+                        break;
+                }
+
+                nextStepsCard.className = `p-5 rounded-xl mb-6 shadow-lg ${bgColor} border-l-8 ${borderColor}`;
+                nextStepsText.textContent = data.nextSteps;
+                nextStepsText.className = `text-3xl font-extrabold ${textColor}`;
+                rationaleText.textContent = data.rationale;
+                
+                // 3. Home Precautions (NEW IMPLEMENTATION)
+                precautionsList.innerHTML = ''; // Clear previous results
+                data.homePrecautions.forEach(precaution => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-start text-gray-700 p-2 bg-green-100 rounded-lg shadow-sm';
+                    li.innerHTML = `<svg class="w-5 h-5 text-green-600 mr-2 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    <span class="text-sm">${precaution}</span>`;
+                    precautionsList.appendChild(li);
+                });
+
+
+                // 4. Specialty Recommendation and Location Search
+                specialtyText.textContent = data.specialtyRecommendation;
+                
+                const specialtyCard = document.getElementById('specialtyCard');
+                const location = locationInput.value.trim();
+
+                // Only perform location search if professional care is recommended AND a location is provided
+                if ((data.nextSteps === 'See a Doctor Soon' || data.nextSteps === 'Seek Emergency Care') && location) {
+                    specialtyCard.classList.remove('hidden');
+                    
+                    let searchSpecialty = data.specialtyRecommendation;
+                    if (data.nextSteps === 'Seek Emergency Care') {
+                         // When emergency is needed, search for ERs instead of the specialty
+                        searchSpecialty = "Emergency Room/Department"; 
+                    }
+                    findNearestProviders(searchSpecialty, location);
+                } 
+                else {
+                    specialtyCard.classList.add('hidden');
+                    providerLinksContainer.innerHTML = ''; // Clear previous results
+                    mapContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500">Map available when professional care is needed and a location is provided.</div>`;
+                }
+
+                // 5. Conditions List
+                conditionsList.innerHTML = ''; // Clear previous results
+                data.conditions.forEach(condition => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center p-3 bg-gray-50 rounded-lg shadow-sm border border-gray-200';
+                    li.innerHTML = `<svg class="w-5 h-5 text-blue-500 mr-3 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                    <span class="text-gray-700">${condition}</span>`;
+                    conditionsList.appendChild(li);
+                });
+            };
+
+            const handleAnalyze = async () => {
+                const symptoms = symptomInput.value.trim();
+                if (symptoms.length < 20) {
+                    statusMessage.textContent = "Please provide comprehensive details regarding your symptoms (minimum 20 characters).";
+                    statusMessage.classList.remove('hidden', 'bg-yellow-50', 'text-yellow-700');
+                    statusMessage.classList.add('bg-red-50', 'text-red-700');
+                    resultsContainer.classList.add('hidden');
+                    return;
+                }
+
+                // Reset state and show loading
+                analyzeButton.disabled = true;
+                resultsContainer.classList.add('hidden');
+                statusMessage.textContent = "Analyzing your symptoms... This assessment may take a few moments.";
+                statusMessage.className = 'mt-6 p-4 rounded-xl text-center font-medium bg-yellow-50 text-yellow-700 border border-yellow-200';
+                statusMessage.classList.remove('hidden', 'bg-red-50', 'text-red-700');
+                providerLinksContainer.innerHTML = ''; // Clear previous location results
+
+                try {
+                    const advice = await getTriageAdvice(symptoms);
+                    statusMessage.classList.add('hidden');
+                    renderResults(advice);
+                } catch (error) {
+                    console.error("Triage Analysis Failed:", error);
+                    statusMessage.textContent = `Error during assessment: ${error.message}`;
+                    statusMessage.classList.remove('bg-yellow-50', 'text-yellow-700');
+                    statusMessage.classList.add('bg-red-50', 'text-red-700');
+                } finally {
+                    analyzeButton.disabled = false;
+                }
+            };
+
+            analyzeButton.addEventListener('click', handleAnalyze);
+        });
+    </script>
+
+    <!-- Chatbot -->
+    <div class="chatbot-container">
+        <div class="chatbot-icon" id="chatbot-icon">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 12H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1zm0-4H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1z"/>
+            </svg>
+        </div>
+        
+        <div class="chat-window" id="chat-window">
+            <div class="chat-header">
+                <h3>AI Assistant</h3>
+                <button class="close-btn" id="close-btn">×</button>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <div class="message bot-message">
+                    <div class="message-bubble">
+                        Hello! I'm your AI assistant. How can I help you today?
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input">
+                <input type="text" id="user-input" placeholder="Type your message...">
+                <button id="send-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22 2L11 13" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotIcon = document.getElementById('chatbot-icon');
+            const chatWindow = document.getElementById('chat-window');
+            const closeBtn = document.getElementById('close-btn');
+            const chatMessages = document.getElementById('chat-messages');
+            const userInput = document.getElementById('user-input');
+            const sendBtn = document.getElementById('send-btn');
+            
+            // Predefined responses for the chatbot
+            const responses = {
+                "hello": "Hello there! How can I assist you today?",
+                "hi": "Hi! Nice to meet you. What can I help you with?",
+                "what can you do": "I can answer questions, provide information, tell jokes, and help with various tasks. Try asking me something!",
+                "how are you": "I'm just a bunch of code, but I'm functioning perfectly! How about you?",
+                "tell me a joke": "Why don't scientists trust atoms? Because they make up everything!",
+                "who created you": "I was created by a developer to demonstrate how to add a chatbot to a website.",
+                "what is your name": "I'm your friendly AI assistant! You can call me ChatBot.",
+                "how does this work": "I use pattern matching to understand your questions and provide relevant responses from my database.",
+                "thank you": "You're welcome! Is there anything else I can help with?",
+                "bye": "Goodbye! Feel free to come back if you have more questions.",
+                "services": "Our company offers web development, digital marketing, and consulting services. Would you like to know more about any of these?",
+                "contact": "You can reach us at info@example.com or call (123) 456-7890 during business hours.",
+                "hours": "Our business hours are Monday to Friday, 9 AM to 5 PM.",
+                "default": "I'm not sure I understand. Could you rephrase that? I can answer questions about our services, tell jokes, or just chat!"
+            };
+            
+            // Toggle chat window visibility
+            chatbotIcon.addEventListener('click', function() {
+                chatWindow.style.display = 'flex';
+            });
+            
+            closeBtn.addEventListener('click', function() {
+                chatWindow.style.display = 'none';
+            });
+            
+            // Function to add a message to the chat
+            function addMessage(message, isUser) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = isUser ? 'message user-message' : 'message bot-message';
+                
+                const bubbleDiv = document.createElement('div');
+                bubbleDiv.className = 'message-bubble';
+                bubbleDiv.textContent = message;
+                
+                messageDiv.appendChild(bubbleDiv);
+                chatMessages.appendChild(messageDiv);
+                
+                // Scroll to the bottom of the chat
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            // Function to show typing indicator
+            function showTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.id = 'typing-indicator';
+                
+                for (let i = 0; i < 3; i++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'typing-dot';
+                    typingDiv.appendChild(dot);
+                }
+                
+                chatMessages.appendChild(typingDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                return typingDiv;
+            }
+            
+            // Function to process user input and generate response
+            function processUserInput() {
+                const input = userInput.value.trim().toLowerCase();
+                
+                if (input === '') return;
+                
+                // Add user message to chat
+                addMessage(input, true);
+                
+                // Clear input field
+                userInput.value = '';
+                
+                // Show typing indicator
+                const typingIndicator = showTypingIndicator();
+                
+                // Simulate AI thinking time
+                setTimeout(() => {
+                    // Remove typing indicator
+                    typingIndicator.remove();
+                    
+                    // Find appropriate response
+                    let response = responses.default;
+                    
+                    for (const key in responses) {
+                        if (input.includes(key)) {
+                            response = responses[key];
+                            break;
+                        }
+                    }
+                    
+                    // Add bot response to chat
+                    addMessage(response, false);
+                }, 1500);
+            }
+            
+            // Event listeners for sending messages
+            sendBtn.addEventListener('click', processUserInput);
+            
+            userInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    processUserInput();
+                }
+            });
+        });
+    </script>
+
+    
+    
+</body>
+
+</html>
